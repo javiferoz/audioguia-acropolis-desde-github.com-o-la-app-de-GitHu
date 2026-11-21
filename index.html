@@ -297,7 +297,7 @@ function pickVoice(){
 if ("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 
 const textOf = poi => mode==="corto" ? SHORT[poi.id] : poi.text;
-let parts = [], partIdx = 0, token = 0;
+let parts = [], partIdx = 0, token = 0, isPaused = false;
 function speak(poi, fromIdx=0){
   show(poi);
   if (!("speechSynthesis" in window)) return;
@@ -317,7 +317,7 @@ function speak(poi, fromIdx=0){
     speechSynthesis.speak(u);
   });
   if (poi.lat) heard.add(poi.id);
-  $("pauseBtn").textContent = "⏸ Pausa";
+  isPaused = false; $("pauseBtn").textContent = "⏸ Pausa";
   render();
 }
 function nextInQueue(){ const p = queue.shift(); if (p && !heard.has(p.id)) setTimeout(()=>speak(p), 900); }
@@ -427,13 +427,17 @@ $("startBtn").onclick = ()=>{
   startGeo();
   keepAwake();
 };
+// Pausa propia: Android corta la voz con pause(), así que paramos y luego seguimos desde la misma frase
 $("pauseBtn").onclick = ()=>{
-  if (speechSynthesis.paused){ speechSynthesis.resume(); $("pauseBtn").textContent="⏸ Pausa"; }
-  else if (speechSynthesis.speaking){ speechSynthesis.pause(); $("pauseBtn").textContent="▶︎ Seguir"; }
+  if (isPaused && current){ speak(current, partIdx); }
+  else if (current){
+    isPaused = true; token++; speechSynthesis.cancel();
+    $("pauseBtn").textContent = "▶︎ Seguir"; $("nowLabel").textContent = "En pausa";
+  }
 };
 $("replayBtn").onclick = ()=>{ const p = current || shown; if (p) speak(p); };
 $("nextBtn").onclick = ()=>{ const nx = shown && nextOf(shown); if (nx){ queue=[]; speak(nx); } };
-$("stopBtn").onclick = ()=>{ queue=[]; current=null; speechSynthesis.cancel(); $("nowLabel").textContent="Detenido"; render(); };
+$("stopBtn").onclick = ()=>{ queue=[]; current=null; isPaused=false; token++; speechSynthesis.cancel(); $("pauseBtn").textContent="⏸ Pausa"; $("nowLabel").textContent="Detenido"; render(); };
 
 // ---------- Mantener la pantalla encendida ----------
 let wakeLock = null, vidOn = false;
@@ -456,7 +460,7 @@ document.addEventListener("visibilitychange", ()=>{
   if (document.visibilityState==="visible" && started){
     keepAwake();
     // Si se cortó la voz al salir, retomar la parada desde la frase en la que iba
-    if (current && !speechSynthesis.speaking) speak(current, partIdx);
+    if (current && !isPaused && !speechSynthesis.speaking) speak(current, partIdx);
   }
 });
 let lastTap = 0;
@@ -493,7 +497,7 @@ $("modeSeg").onclick = e=>{
 $("rateSeg").onclick = e=>{
   const v = e.target.dataset && e.target.dataset.v; if (!v) return;
   rate = parseFloat(v); store.set("rate",v); paintSeg();
-  if (current && speechSynthesis.speaking && !speechSynthesis.paused) speak(current, partIdx);  // sigue desde la frase actual
+  if (current && !isPaused) speak(current, partIdx);  // sigue desde la frase actual
 };
 paintSeg();
 render();
