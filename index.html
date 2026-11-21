@@ -45,6 +45,11 @@
   .toggle{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
   .note{font-size:12px;color:var(--muted);line-height:1.5}
   .hidden{display:none}
+  .pocket{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#555;font-size:14px;text-align:center;padding:30px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  .pocket b{color:#8a8a8a;font-size:18px;display:block;margin-bottom:6px}
+  .pocket .pTitle{color:#6f6f6f;margin-top:18px}
+  .awake{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 4px 0}
+  .awake button{padding:9px 12px;border-radius:10px;background:var(--ink);color:#fff;font-weight:500;font-size:14px}
   .settings{padding:12px 14px}
   .setRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
   .setLbl{font-size:13px;color:var(--muted);font-weight:500}
@@ -74,6 +79,9 @@
     <div class="setRow"><span class="setLbl">Velocidad</span>
       <div class="seg" id="rateSeg"><button data-v="1">1×</button><button data-v="1.25">1,25×</button><button data-v="1.5">1,5×</button><button data-v="1.75">1,75×</button></div></div>
   </div>
+
+  <div class="awake hidden" id="awakeRow"><span class="status" style="margin:0"><span class="dot" id="wakeDot"></span><span id="wakeText">Pantalla</span></span>
+    <button id="pocketBtn">🌙 Modo bolsillo</button></div>
 
   <button class="primary" id="startBtn">▶︎ Empezar la visita</button>
 
@@ -107,6 +115,12 @@
 
   <p class="note">Consejo: lleva auriculares y sube el volumen. Si el GPS no está disponible, toca cualquier parada para escucharla. Ruta recomendada: entra por la Puerta Beulé, sube por los Propileos y recorre la meseta en el orden numerado.</p>
 </main>
+
+<div class="pocket hidden" id="pocket">
+  <div><b>Modo bolsillo</b>La pantalla sigue encendida (en negro) para que la guía pueda hablar y seguir tu posición.<br>Toca dos veces para volver.</div>
+  <div class="pTitle" id="pocketNow"></div>
+</div>
+<video id="keepVid" playsinline muted loop style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none" src="data:video/mp4;base64,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aHJvbWFfbWU9MSB0cmVsbGlzPTAgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9MCB0aHJlYWRzPTEgbG9va2FoZWFkX3RocmVhZHM9MSBzbGljZWRfdGhyZWFkcz0wIG5yPTAgZGVjaW1hdGU9MSBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJlY3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTEga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD0xMCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAASZYiEABb/7H/CVX/RApEebX/xARggBwEYIAcBGCAHARggBwEYIAcBGCAHARggBwEYIAcAAAAIQZohGIK//vABGCAHARggBwEYIAcBGCAHARggBwEYIAcBGCAHARggBw=="></video>
 
 <script>
 const POIS = [
@@ -314,6 +328,7 @@ function show(poi){
   const nx = nextOf(poi);
   $("nextBox").innerHTML = nx ? `<b>Siguiente: ${nx.n}. ${nx.name}</b><br>${EXTRA[nx.id].go}` : "<b>Fin de la visita.</b>";
   $("nextBtn").classList.toggle("hidden", !nx);
+  if ($("pocketNow")) $("pocketNow").textContent = "Ahora: " + poi.name;
   $("nowCard").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
@@ -405,7 +420,7 @@ $("startBtn").onclick = ()=>{
   $("startBtn").classList.add("hidden");
   speak(POIS[0]);          // el gesto del usuario desbloquea el audio
   startGeo();
-  try{ navigator.wakeLock && navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
+  keepAwake();
 };
 $("pauseBtn").onclick = ()=>{
   if (speechSynthesis.paused){ speechSynthesis.resume(); $("pauseBtn").textContent="⏸ Pausa"; }
@@ -414,6 +429,42 @@ $("pauseBtn").onclick = ()=>{
 $("replayBtn").onclick = ()=>{ const p = current || shown; if (p) speak(p); };
 $("nextBtn").onclick = ()=>{ const nx = shown && nextOf(shown); if (nx){ queue=[]; speak(nx); } };
 $("stopBtn").onclick = ()=>{ queue=[]; current=null; speechSynthesis.cancel(); $("nowLabel").textContent="Detenido"; render(); };
+
+// ---------- Mantener la pantalla encendida ----------
+let wakeLock = null, vidOn = false;
+function setWake(ok, txt){ $("wakeDot").className = "dot " + (ok?"on":"err"); $("wakeText").textContent = txt; }
+async function keepAwake(){
+  $("awakeRow").classList.remove("hidden");
+  if ("wakeLock" in navigator){
+    try{
+      wakeLock = await navigator.wakeLock.request("screen");
+      setWake(true, "La pantalla no se apagará");
+      wakeLock.addEventListener("release", ()=>{ if (document.visibilityState==="visible") keepAwake(); });
+      return;
+    }catch(e){ /* sigue con el plan B */ }
+  }
+  // Plan B (navegadores antiguos): un vídeo mudo en bucle evita que se bloquee
+  try{ await $("keepVid").play(); vidOn = true; setWake(true, "La pantalla no se apagará"); }
+  catch(e){ setWake(false, "No puedo evitar que se apague: sube el bloqueo automático en Ajustes"); }
+}
+document.addEventListener("visibilitychange", ()=>{
+  if (document.visibilityState==="visible" && started){
+    keepAwake();
+    // Si se cortó la voz al salir, retomar la parada desde la frase en la que iba
+    if (current && !speechSynthesis.speaking) speak(current, partIdx);
+  }
+});
+let lastTap = 0;
+$("pocketBtn").onclick = ()=>{
+  $("pocket").classList.remove("hidden");
+  $("pocketNow").textContent = shown ? "Ahora: " + shown.name : "";
+  try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(()=>{}); }catch(e){}
+};
+$("pocket").addEventListener("click", ()=>{
+  const t = Date.now();
+  if (t - lastTap < 400){ $("pocket").classList.add("hidden"); try{ document.fullscreenElement && document.exitFullscreen(); }catch(e){} }
+  lastTap = t;
+});
 
 function paintSeg(){
   $("modeSeg").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===mode));
