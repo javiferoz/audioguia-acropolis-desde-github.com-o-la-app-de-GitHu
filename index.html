@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audioguía de la Acrópolis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --marble:#f6f1e7; --stone:#e7dcc8; --ink:#2b2520; --muted:#7a6e62;
+    --olive:#5d6b3a; --terra:#b5562f; --sky:#2f5d7c; --card:#fffdf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--marble);color:var(--ink);-webkit-tap-highlight-color:transparent}
+  header{padding:22px 18px 10px;background:linear-gradient(180deg,#efe5d3,var(--marble))}
+  h1{font-family:"Cormorant Garamond",serif;font-size:32px;margin:0;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  main{padding:0 14px 120px;max-width:560px;margin:0 auto}
+  .status{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin:10px 4px}
+  .dot{width:10px;height:10px;border-radius:50%;background:#bbb;flex:none}
+  .dot.on{background:var(--olive);box-shadow:0 0 0 4px #5d6b3a33}
+  .dot.err{background:var(--terra)}
+  button{font:inherit;cursor:pointer;border:none}
+  .primary{width:100%;padding:16px;border-radius:14px;background:var(--ink);color:#fff;font-weight:600;font-size:16px}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 1px 3px #0001,0 6px 18px #0000000a}
+  .now h2{font-family:"Cormorant Garamond",serif;font-size:26px;margin:2px 0 6px}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--terra);font-weight:600}
+  .now p{line-height:1.55;font-size:15px;margin:8px 0 0;color:#3d352e}
+  .controls{display:flex;gap:8px;margin-top:12px}
+  .controls button{flex:1;padding:11px;border-radius:10px;background:var(--stone);color:var(--ink);font-weight:500}
+  .controls button.act{background:var(--olive);color:#fff}
+  svg{width:100%;height:auto;display:block;border-radius:12px;background:#efe7d8}
+  .list{list-style:none;padding:0;margin:0}
+  .list li{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #00000010;cursor:pointer}
+  .list li:last-child{border:none}
+  .num{width:28px;height:28px;border-radius:50%;background:var(--stone);display:grid;place-items:center;font-size:13px;font-weight:600;flex:none}
+  .list li.heard .num{background:var(--olive);color:#fff}
+  .list li.near .num{background:var(--terra);color:#fff}
+  .list .t{flex:1}
+  .list .t b{display:block;font-weight:500;font-size:15px}
+  .list .t span{font-size:12px;color:var(--muted)}
+  .dist{font-size:13px;color:var(--muted);white-space:nowrap}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .toggle{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .note{font-size:12px;color:var(--muted);line-height:1.5}
+  .hidden{display:none}
+  .settings{padding:12px 14px}
+  .setRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+  .setLbl{font-size:13px;color:var(--muted);font-weight:500}
+  .seg{display:flex;background:var(--stone);border-radius:10px;padding:3px;gap:2px}
+  .seg button{padding:8px 11px;border-radius:8px;background:none;color:var(--ink);font-size:14px;font-weight:500}
+  .seg button.on{background:var(--ink);color:#fff}
+  .art{margin:10px 0 4px}
+  .art svg{background:none}
+  .look{background:#f1e8d6;border-left:3px solid var(--terra);padding:9px 11px;border-radius:8px;font-size:14px;line-height:1.45;margin-top:8px}
+  .look b{color:var(--terra)}
+  .next{margin-top:12px;padding-top:12px;border-top:1px solid #00000012;font-size:14px;line-height:1.45}
+  .nextBtn{width:100%;margin-top:8px;padding:13px;border-radius:12px;background:var(--terra);color:#fff;font-weight:600;font-size:15px}
+  details summary{font-size:12px;color:var(--muted);cursor:pointer;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Acrópolis de Atenas</h1>
+  <div class="sub">Audioguía que habla según dónde estés</div>
+</header>
+<main>
+  <div class="status"><span class="dot" id="gpsDot"></span><span id="gpsText">Ubicación sin activar</span></div>
+
+  <div class="card settings">
+    <div class="setRow"><span class="setLbl">Explicación</span>
+      <div class="seg" id="modeSeg"><button data-v="corto">Corta</button><button data-v="largo">Larga</button></div></div>
+    <div class="setRow"><span class="setLbl">Velocidad</span>
+      <div class="seg" id="rateSeg"><button data-v="1">1×</button><button data-v="1.25">1,25×</button><button data-v="1.5">1,5×</button><button data-v="1.75">1,75×</button></div></div>
+  </div>
+
+  <button class="primary" id="startBtn">▶︎ Empezar la visita</button>
+
+  <div class="card now hidden" id="nowCard">
+    <div class="label" id="nowLabel">Ahora</div>
+    <h2 id="nowTitle"></h2>
+    <div class="art" id="nowArt"></div>
+    <div class="look" id="nowLook"></div>
+    <details><summary>Ver el texto narrado</summary><p id="nowText"></p></details>
+    <div class="controls">
+      <button id="pauseBtn">⏸ Pausa</button>
+      <button id="replayBtn">↺ Repetir</button>
+      <button id="stopBtn">■ Parar</button>
+    </div>
+    <div class="next" id="nextBox"></div>
+    <button class="nextBtn" id="nextBtn">Siguiente parada →</button>
+  </div>
+
+  <div class="card">
+    <svg id="map" viewBox="0 0 400 380" aria-label="Plano de la Acrópolis"></svg>
+    <div class="row" style="margin-top:10px">
+      <label class="toggle"><input type="checkbox" id="autoChk" checked> Reproducir al llegar</label>
+      <span class="note" id="accText"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="margin-bottom:4px">Paradas · toca para escuchar</div>
+    <ul class="list" id="list"></ul>
+  </div>
+
+  <p class="note">Consejo: lleva auriculares y sube el volumen. Si el GPS no está disponible, toca cualquier parada para escucharla. Ruta recomendada: entra por la Puerta Beulé, sube por los Propileos y recorre la meseta en el orden numerado.</p>
+</main>
+
+<script>
+const POIS = [
+ {id:"intro", n:0, name:"Bienvenida", lat:null, lng:null, sub:"Introducción",
+  text:"Bienvenido a la Acrópolis de Atenas. Acrópolis significa 'ciudad alta': esta roca caliza, de unos 150 metros sobre el nivel del mar, fue fortaleza en la Edad del Bronce y, sobre todo, el gran santuario de Atenea, la diosa protectora de la ciudad. Casi todo lo que verás arriba se construyó en el siglo quinto antes de Cristo, en la época de Pericles, después de que los persas incendiaran el santuario anterior en el año 480. Esta guía usa tu ubicación: cuando te acerques a un monumento, te lo contaré. Puedes guardar el teléfono y caminar tranquilamente. Cuidado con el mármol, que está muy pulido y resbala."},
+ {id:"areopago", n:1, name:"Areópago", lat:37.97222, lng:23.72344, r:35, sub:"La colina de Ares",
+  text:"Estás junto al Areópago, la colina rocosa de Ares. Aquí se reunía uno de los consejos más antiguos de Atenas, que actuaba como tribunal para los casos de homicidio. Según el mito, en este lugar fue juzgado Orestes por matar a su madre, y Atenea emitió el voto decisivo que lo absolvió. Siglos después, según los Hechos de los Apóstoles, Pablo de Tarso pronunció aquí su discurso a los atenienses sobre el 'dios desconocido'; verás una placa de bronce con el texto al pie de la escalinata. Desde arriba hay una vista estupenda del Ágora antigua y del templo de Hefesto. Ojo al subir: la roca está muy desgastada y resbala."},
+ {id:"beule", n:2, name:"Puerta Beulé", lat:37.97163, lng:23.72462, r:25, sub:"Entrada romana",
+  text:"Esta es la Puerta Beulé, la entrada fortificada que hoy da acceso a la Acrópolis. No es clásica: se construyó en época romana tardía, en el siglo tercero después de Cristo, cuando Atenas temía las invasiones. Para levantarla se reutilizaron piedras de monumentos más antiguos, entre ellos el monumento corégico de Nicias, cuya inscripción todavía se puede leer. Toma su nombre del arqueólogo francés Ernest Beulé, que la sacó a la luz en 1852. Sigue subiendo: delante tienes la gran escalinata de los Propileos."},
+ {id:"propileos", n:3, name:"Propileos", lat:37.97163, lng:23.72530, r:22, sub:"La puerta monumental",
+  text:"Estás en los Propileos, la puerta monumental del santuario. Los diseñó el arquitecto Mnesicles y se construyeron entre los años 437 y 432 antes de Cristo, justo después del Partenón. Observa cómo combinan columnas dóricas por fuera con esbeltas columnas jónicas en el pasillo central. El edificio nunca se terminó: la guerra del Peloponeso interrumpió las obras, y aún se ven los salientes de piedra que servían para mover los bloques y que nunca se pulieron. El ala norte, a tu izquierda subiendo, era la Pinacoteca, una sala con pinturas que es considerada una de las primeras galerías de arte conocidas. Al atravesar los Propileos, los antiguos atenienses veían aparecer el Partenón en diagonal, una vista pensada para impresionar."},
+ {id:"nike", n:4, name:"Templo de Atenea Niké", lat:37.97138, lng:23.72510, r:18, sub:"Atenea, la Victoria",
+  text:"A tu derecha, sobre el bastión, está el pequeño templo de Atenea Niké, la Atenea de la Victoria. Es una joya jónica de hacia el año 425 antes de Cristo, atribuida a Calícrates, uno de los arquitectos del Partenón. Tiene cuatro columnas delante y cuatro detrás. Lo rodeaba un parapeto con relieves de Victorias aladas; el más famoso, la Niké que se ata la sandalia, está en el Museo de la Acrópolis. La historia del templo es curiosa: los otomanos lo desmontaron piedra a piedra a finales del siglo diecisiete para construir un baluarte, y en la década de 1830 los arqueólogos lo recuperaron y lo volvieron a montar. Se ha restaurado varias veces desde entonces."},
+ {id:"promacos", n:5, name:"Atenea Prómacos", lat:37.97188, lng:23.72575, r:18, sub:"La estatua gigante desaparecida",
+  text:"Justo al salir de los Propileos, en este espacio abierto, se alzaba la Atenea Prómacos, 'la que combate en primera línea'. Era una enorme estatua de bronce de Fidias, de unos nueve metros, hecha con el botín de la victoria sobre los persas en Maratón. Según el viajero Pausanias, los marineros que doblaban el cabo Sunio ya veían brillar la punta de su lanza y el penacho de su casco. Hoy solo quedan restos de la base. La estatua fue llevada a Constantinopla y destruida a comienzos del siglo trece."},
+ {id:"partenon", n:6, name:"Partenón", lat:37.97153, lng:23.72658, r:40, sub:"El templo de Atenea Pártenos",
+  text:"Delante de ti, el Partenón, el templo de Atenea Pártenos, la virgen. Se construyó entre el 447 y el 438 antes de Cristo, y su decoración escultórica se terminó hacia el 432. Los arquitectos fueron Ictino y Calícrates, y el escultor Fidias dirigió todo el programa artístico. Es un templo dórico de mármol del Pentélico, con ocho columnas en las fachadas y diecisiete en los lados. Fíjate en lo que no se ve a simple vista: no hay casi ninguna línea recta. El suelo se curva hacia arriba en el centro, las columnas se inclinan ligeramente hacia dentro y se ensanchan un poco a media altura, para corregir ilusiones ópticas y dar sensación de vida. Dentro estaba la estatua de Atenea Pártenos, de unos doce metros, hecha de oro y marfil. El edificio fue después iglesia, luego mezquita, y en 1687, durante el asedio veneciano, una bala de cañón hizo estallar la pólvora que los otomanos guardaban dentro, destruyendo su parte central. A principios del siglo diecinueve, Lord Elgin se llevó buena parte de las esculturas a Londres, donde siguen en el Museo Británico."},
+ {id:"arcaico", n:7, name:"Antiguo templo de Atenea", lat:37.97200, lng:23.72635, r:18, sub:"Cimientos del templo arcaico",
+  text:"Entre el Partenón y el Erecteion, mira al suelo: esos grandes cimientos de piedra pertenecen al Antiguo Templo de Atenea, del periodo arcaico, en el siglo sexto antes de Cristo. Albergaba la venerada estatua de madera de olivo de Atenea Polias, que según la tradición había caído del cielo. Los persas lo destruyeron al saquear la Acrópolis en el año 480. Los atenienses dejaron ruinas a la vista durante años como recuerdo del saqueo, y después reconstruyeron todo el santuario con más esplendor que nunca."},
+ {id:"erecteion", n:8, name:"Erecteion y Cariátides", lat:37.97225, lng:23.72655, r:22, sub:"El templo más sagrado",
+  text:"Este es el Erecteion, construido entre el 421 y el 406 antes de Cristo. Es el templo más irregular de la Acrópolis, porque reunía varios cultos muy antiguos en un terreno con desniveles. Aquí, según el mito, Atenea y Poseidón compitieron por la ciudad: Poseidón golpeó la roca con su tridente e hizo brotar agua salada, y Atenea hizo nacer un olivo. Los atenienses eligieron el olivo. Junto al lado oeste verás un olivo, plantado en recuerdo del árbol sagrado. Lo más famoso es el pórtico de las Cariátides: seis doncellas que sostienen el techo en lugar de columnas. Las que ves son copias. Cinco originales están en el Museo de la Acrópolis y la sexta en el Museo Británico de Londres."},
+ {id:"mirador", n:9, name:"Mirador y bandera", lat:37.97185, lng:23.72790, r:25, sub:"El extremo este",
+  text:"Has llegado al extremo este de la roca, el mirador donde ondea la bandera griega. Desde aquí se domina Atenas: al noreste, la colina del Licabeto con su capilla blanca; al sureste, las columnas del templo de Zeus Olímpico; y al fondo, en días claros, el mar del Pireo. Este lugar tiene un significado especial: la noche del 30 de mayo de 1941, durante la ocupación alemana, dos jóvenes, Manolis Glezos y Apostolos Santas, subieron a escondidas y arrancaron la bandera nazi. Fue uno de los primeros actos de resistencia en la Europa ocupada."},
+ {id:"eumenes", n:10, name:"Stoa de Eumenes", lat:37.97060, lng:23.72620, r:30, sub:"Ladera sur",
+  text:"Estás en la ladera sur, a lo largo de la Stoa de Eumenes. Era un largo pórtico de dos pisos, regalo del rey Eumenes segundo de Pérgamo a Atenas en el siglo segundo antes de Cristo. Unía el teatro de Dioniso con la zona del Odeón, y daba sombra y refugio de la lluvia al público de los teatros. Aún se ven los grandes arcos de contención en la pared de la roca."},
+ {id:"odeon", n:11, name:"Odeón de Herodes Ático", lat:37.97080, lng:23.72460, r:35, sub:"El teatro romano",
+  text:"Abajo, a tus pies, el Odeón de Herodes Ático. Lo construyó en el año 161 después de Cristo el riquísimo ateniense Herodes Ático, en memoria de su esposa Regila. Tenía cabida para unas cinco mil personas y estaba cubierto con un techo de madera de cedro. Fíjate en la fachada de arcos, que todavía se conserva a gran altura. Las gradas se restauraron en los años cincuenta del siglo pasado y hoy el Odeón vuelve a usarse: cada verano acoge conciertos, ópera y teatro del Festival de Atenas."},
+ {id:"asclepeion", n:12, name:"Asclepeion", lat:37.97085, lng:23.72710, r:25, sub:"Santuario de la curación",
+  text:"Aquí estaba el Asclepeion, el santuario de Asclepio, dios de la medicina. Se fundó hacia el año 420 antes de Cristo, poco después de la terrible peste que asoló Atenas durante la guerra del Peloponeso. Los enfermos dormían en el pórtico esperando que el dios se les apareciera en sueños y les indicara la curación. Había una fuente sagrada en una cueva de la roca, que más tarde se convirtió en capilla cristiana. Se cuenta que el dramaturgo Sófocles acogió el culto del dios en su propia casa mientras se construía el santuario."},
+ {id:"dioniso", n:13, name:"Teatro de Dioniso", lat:37.97030, lng:23.72780, r:40, sub:"La cuna del teatro",
+  text:"Este es el Teatro de Dioniso, considerado la cuna del teatro occidental. Aquí, durante las fiestas en honor del dios Dioniso, se estrenaron las tragedias de Esquilo, Sófocles y Eurípides y las comedias de Aristófanes. Al principio las gradas eran de madera; las de piedra se construyeron en el siglo cuarto antes de Cristo, y el teatro llegó a acoger a unas diecisiete mil personas. Mira la primera fila: son asientos de mármol con respaldo, reservados a sacerdotes y autoridades. El del centro, decorado con relieves, era el trono del sacerdote de Dioniso. Lo que ves del escenario y la orquesta es en buena parte de época romana."},
+ {id:"museo", n:14, name:"Museo de la Acrópolis", lat:37.96845, lng:23.72855, r:50, sub:"Al pie de la roca",
+  text:"Estás junto al Museo de la Acrópolis, inaugurado en 2009 y diseñado por el arquitecto Bernard Tschumi. Antes de entrar, mira al suelo: el edificio se levanta sobre pilotes encima de un barrio antiguo excavado, que se ve a través de los suelos de cristal. Dentro están los originales que faltan arriba: cinco Cariátides, la Niké de la sandalia y esculturas arcaicas de muchachas sonrientes, las korai. La última planta está girada para alinearse con el Partenón, que se ve a través de los ventanales, y muestra el friso del templo a su tamaño original. Las piezas que están en Londres aparecen como copias de yeso blanco, un recordatorio de la reclamación griega para recuperarlas."}
+];
+
+// ---------- Ruta, pistas visuales y cómo llegar ----------
+const ORDER = ["intro","areopago","beule","propileos","nike","promacos","partenon","arcaico","erecteion","mirador","odeon","eumenes","asclepeion","dioniso","museo"];
+POIS.sort((a,b)=>ORDER.indexOf(a.id)-ORDER.indexOf(b.id)).forEach((p,i)=>p.n=i);
+
+const EXTRA = {
+ intro:{look:"La gran roca con el Partenón en lo alto. Empieza por la entrada oeste (la principal).", go:""},
+ areopago:{look:"Una colina de roca desnuda y muy pulida, con escalones tallados y una escalera metálica. Al pie, una placa de bronce.", go:"Desde la entrada oeste, antes de las taquillas, es la roca baja a tu derecha (norte), a unos 100 metros."},
+ beule:{look:"Un muro con dos torres cuadradas y una puerta baja en el centro, al empezar la subida.", go:"Pasa las taquillas de la entrada oeste y sube por el camino: es la primera puerta que atraviesas."},
+ propileos:{look:"Una gran escalinata que sube hacia un pórtico de seis columnas gruesas, con un ala a cada lado.", go:"Sigue subiendo la escalinata que tienes delante."},
+ nike:{look:"Un templo pequeño de cuatro columnas finas, encima de un bastión alto, a tu derecha mientras subes.", go:"En la escalinata de los Propileos, mira a tu derecha y hacia arriba."},
+ promacos:{look:"La explanada abierta justo después de los Propileos. En el suelo, a la izquierda, restos de una base rectangular.", go:"Atraviesa los Propileos y párate nada más salir a la explanada."},
+ partenon:{look:"El gran templo de columnas gruesas, delante a la derecha. Seguramente verás grúas y andamios de la restauración.", go:"Camina por la explanada hacia el este: el templo queda a tu derecha."},
+ arcaico:{look:"Mira al suelo: grandes bloques de cimentación a ras de tierra, entre el Partenón y el Erecteion.", go:"Desde el lado norte del Partenón, cruza hacia el templo de la izquierda; los cimientos quedan en medio."},
+ erecteion:{look:"Un templo de columnas finas en varios niveles. En su lado sur, seis estatuas de mujeres sostienen un techo.", go:"Es el templo a la izquierda (norte) del Partenón. Las Cariátides miran hacia el Partenón."},
+ mirador:{look:"La bandera azul y blanca en un saliente. Enfrente, la colina del Licabeto con una capilla blanca arriba.", go:"Camina hasta el extremo este de la meseta, pasado el Partenón."},
+ odeon:{look:"Visto desde arriba: un teatro semicircular de gradas blancas, cerrado por una alta fachada de arcos.", go:"Baja de nuevo por los Propileos. El Odeón se ve desde el muro de la izquierda (sur) al bajar, y desde el camino de la ladera sur."},
+ eumenes:{look:"Un largo muro de contención con arcos, a lo largo del camino de la ladera sur.", go:"Toma el camino de la ladera sur hacia el este, entre el Odeón y el Teatro de Dioniso."},
+ asclepeion:{look:"Unas pocas columnas junto a la pared de roca y la boca de una pequeña cueva convertida en capilla.", go:"Sigue por el camino de la ladera sur: queda por encima del Teatro de Dioniso."},
+ dioniso:{look:"Gradas de piedra en semicírculo. En primera fila, sillones de mármol con respaldo; el del centro, decorado.", go:"Baja por el camino hacia el sureste: el teatro está al final."},
+ museo:{look:"Un edificio moderno de cristal y hormigón sobre pilares. En la entrada, suelo de cristal sobre ruinas.", go:"Sal por la entrada sureste a la calle peatonal Dionysiou Areopagitou. El museo está enfrente, a unos 300 metros."}
+};
+
+const SHORT = {
+ intro:"Bienvenido a la Acrópolis, el gran santuario de Atenea. Casi todo lo que verás se construyó en el siglo quinto antes de Cristo, en tiempos de Pericles, tras el saqueo persa del año 480. Cuidado con el mármol, que resbala.",
+ areopago:"El Areópago, la colina de Ares. Aquí se reunía el tribunal de Atenas para los casos de homicidio, y según la tradición aquí habló San Pablo a los atenienses. Arriba hay muy buena vista del Ágora.",
+ beule:"La Puerta Beulé es la entrada fortificada de época romana, del siglo tercero después de Cristo, levantada con piedras de monumentos más antiguos.",
+ propileos:"Los Propileos, la puerta monumental del santuario, obra de Mnesicles hacia el 437 antes de Cristo. Nunca se terminaron por la guerra del Peloponeso.",
+ nike:"A tu derecha, el pequeño templo de Atenea Niké, la Atenea de la Victoria. Los otomanos lo desmontaron y en el siglo diecinueve se volvió a montar piedra a piedra.",
+ promacos:"Aquí se alzaba la Atenea Prómacos, una estatua de bronce de Fidias de unos nueve metros. Según Pausanias, desde el mar se veía brillar la punta de su lanza. Solo queda la base.",
+ partenon:"El Partenón, templo de Atenea, construido entre el 447 y el 438 antes de Cristo bajo la dirección de Fidias. Casi no tiene líneas rectas: suelo y columnas se curvan para parecer perfectos. En 1687 una explosión de pólvora destruyó su centro.",
+ arcaico:"Mira al suelo: son los cimientos del Antiguo Templo de Atenea, destruido por los persas en el año 480 antes de Cristo.",
+ erecteion:"El Erecteion, el templo más sagrado. Aquí Atenea venció a Poseidón regalando un olivo a la ciudad. Las seis Cariátides son copias: cinco originales están en el museo y una en Londres.",
+ mirador:"El mirador de la bandera. Desde aquí se ve el Licabeto y el templo de Zeus. En 1941 dos jóvenes arrancaron aquí la bandera nazi, uno de los primeros actos de resistencia en Europa.",
+ odeon:"El Odeón de Herodes Ático, del año 161 después de Cristo. Tiene unas cinco mil plazas y todavía se usa cada verano para el Festival de Atenas.",
+ eumenes:"La Stoa de Eumenes, un largo pórtico que regaló el rey de Pérgamo en el siglo segundo antes de Cristo para dar sombra al público de los teatros.",
+ asclepeion:"El Asclepeion, santuario de Asclepio, dios de la medicina. Se fundó tras la gran peste de Atenas, y los enfermos dormían aquí esperando curarse en sueños.",
+ dioniso:"El Teatro de Dioniso, cuna del teatro: aquí se estrenaron las obras de Esquilo, Sófocles, Eurípides y Aristófanes. En primera fila, los asientos de honor de mármol.",
+ museo:"El Museo de la Acrópolis, de 2009. Bajo el suelo de cristal hay un barrio antiguo, y arriba están los originales de las Cariátides y el friso del Partenón."
+};
+
+// ---------- Ajustes (velocidad y duración) ----------
+const store = { get:(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},
+                set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+let rate = parseFloat(store.get("rate","1.25")), mode = store.get("mode","largo");
+
+// ---------- Dibujos ----------
+const ST='fill="#f3ecdf" stroke="#5a4f44" stroke-width="1.4"';
+const ROCKC='fill="#c9b99c" stroke="#9b8a6e" stroke-width="1.2"';
+const T=(x,y,t,a="start")=>`<text x="${x}" y="${y}" font-size="10.5" fill="#4a4036" font-family="Inter,sans-serif" text-anchor="${a}">${t}</text>`;
+const ARROW=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#b5562f" stroke-width="1.6"/><circle cx="${x2}" cy="${y2}" r="2.6" fill="#b5562f"/>`;
+const S=inner=>`<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="180" rx="12" fill="#dfe9ef"/><rect y="150" width="320" height="30" fill="#d9ccb3"/>${inner}</svg>`;
+function cols(x0,x1,n,yT,yB,ionic){
+  let s="";const step=n>1?(x1-x0)/(n-1):0,w=Math.max(4,Math.min(14,(step||20)*0.55));
+  for(let i=0;i<n;i++){const cx=x0+i*step;
+    s+=`<rect x="${cx-w/2}" y="${yT}" width="${w}" height="${yB-yT}" ${ST}/>`;
+    s+= ionic ? `<circle cx="${cx-w/2}" cy="${yT+2}" r="2.4" ${ST}/><circle cx="${cx+w/2}" cy="${yT+2}" r="2.4" ${ST}/>`
+              : `<rect x="${cx-w/2-2}" y="${yT-3}" width="${w+4}" height="3" ${ST}/>`;}
+  return s;
+}
+function temple({x0,x1,base,h,n,ionic=false,ped=true}){
+  const L=x0-12,R=x1+12;let s="";
+  for(let i=0;i<3;i++) s+=`<rect x="${L-i*5}" y="${base+i*5}" width="${R-L+i*10}" height="5" ${ST}/>`;
+  s+=cols(x0,x1,n,base-h,base,ionic);
+  s+=`<rect x="${L}" y="${base-h-14}" width="${R-L}" height="14" ${ST}/>`;
+  if(ped) s+=`<polygon points="${L},${base-h-14} ${(L+R)/2},${base-h-14-(R-L)*0.13} ${R},${base-h-14}" ${ST}/>`;
+  return s;
+}
+const arch=(x,y,w,h)=>`<path d="M${x} ${y+h} V${y+w/2} A${w/2} ${w/2} 0 0 1 ${x+w} ${y+w/2} V${y+h} Z" fill="#8f806c"/>`;
+function figure(cx,top,bot){return `<rect x="${cx-6}" y="${top-4}" width="12" height="4" ${ST}/><circle cx="${cx}" cy="${top+5}" r="5" ${ST}/><path d="M${cx-5} ${top+10} L${cx+5} ${top+10} L${cx+7} ${bot} L${cx-7} ${bot} Z" ${ST}/>`;}
+function halfE(cx,cy,rx,ry,attr){return `<path d="M${cx-rx} ${cy} A${rx} ${ry} 0 0 1 ${cx+rx} ${cy} Z" ${attr}/>`;}
+
+const DRAW = {
+ intro:()=>S(`<polygon points="15,150 45,108 110,92 230,90 280,104 308,150" ${ROCKC}/>`+temple({x0:160,x1:240,base:72,h:22,n:8})+cols(105,135,3,72,90,true)+T(160,30,"Partenón","middle")+T(70,125,"Roca de la Acrópolis")),
+ areopago:()=>S(`<polygon points="15,150 55,100 115,82 200,86 262,104 305,150" fill="#b7a98f" stroke="#8f8068" stroke-width="1.4"/>`+
+   [0,1,2,3,4,5].map(i=>`<rect x="${62+i*7}" y="${140-i*8}" width="14" height="5" fill="#a39477" stroke="#7d6f58"/>`).join("")+
+   `<line x1="120" y1="148" x2="150" y2="88" stroke="#555" stroke-width="2.5"/><line x1="128" y1="148" x2="158" y2="88" stroke="#555" stroke-width="2.5"/>`+
+   `<rect x="25" y="122" width="22" height="28" fill="#8a6d3b" stroke="#5e4a28"/>`+T(8,104,"Placa de bronce")+T(72,74,"Escalones tallados")+T(168,104,"Escalera metálica")),
+ beule:()=>S(`<g opacity=".45">`+cols(130,190,4,40,72)+`<rect x="120" y="28" width="80" height="12" ${ST}/></g>`+
+   `<rect x="60" y="95" width="200" height="55" ${ST}/><rect x="38" y="68" width="46" height="82" ${ST}/><rect x="236" y="68" width="46" height="82" ${ST}/>`+
+   `<rect x="146" y="114" width="28" height="36" fill="#5a4f44"/>`+T(160,90,"Puerta","middle")+T(205,24,"Propileos (detrás)")+T(40,62,"Torre")),
+ propileos:()=>{let s="";for(let i=0;i<6;i++)s+=`<rect x="${100-i*12}" y="${122+i*5}" width="${120+i*24}" height="5" ${ST}/>`;
+   return S(s+temple({x0:118,x1:202,base:104,h:50,n:6})+cols(40,88,3,78,120)+`<rect x="30" y="66" width="70" height="12" ${ST}/>`+
+   cols(232,268,2,86,120)+`<rect x="222" y="74" width="58" height="12" ${ST}/>`+T(35,60,"Pinacoteca")+T(250,68,"Ala sur","middle")+T(160,20,"6 columnas dóricas","middle"))},
+ nike:()=>S(`<rect x="120" y="95" width="160" height="55" fill="#e7dcc8" stroke="#5a4f44"/>`+
+   [105,120,135].map(y=>`<line x1="120" y1="${y}" x2="280" y2="${y}" stroke="#bfae8e"/>`).join("")+
+   temple({x0:178,x1:232,base:80,h:28,n:4,ionic:true})+
+   [0,1,2,3,4,5,6].map(i=>`<rect x="${20+i*12}" y="${150-i*8}" width="80" height="4" fill="#e7dcc8" stroke="#a89a82"/>`).join("")+
+   T(205,22,"Templo de Atenea Niké","middle")+T(200,128,"Bastión","middle")+T(20,94,"Escalinata"),
+ ),
+ promacos:()=>S(`<g fill="none" stroke="#9b8c78" stroke-width="1.6" stroke-dasharray="4 3"><circle cx="160" cy="34" r="9"/><path d="M152 26 Q160 10 170 24"/><path d="M150 46 L170 46 L176 122 L144 122 Z"/><ellipse cx="138" cy="84" rx="12" ry="18"/><line x1="182" y1="122" x2="190" y2="8"/></g>`+
+   `<rect x="132" y="124" width="56" height="26" ${ST}/>`+T(198,60,"Estatua desaparecida")+T(200,140,"Hoy: solo la base")+ARROW(198,137,190,135)),
+ partenon:()=>S(temple({x0:45,x1:265,base:135,h:62,n:8})+`<path d="M298 150 V22 H232 M298 34 L246 22" stroke="#c48a2c" stroke-width="2.2" fill="none"/><line x1="240" y1="22" x2="240" y2="46" stroke="#c48a2c"/>`+
+   T(155,26,"Frontón","middle")+T(250,16,"Grúa")+T(12,174,"8 columnas dóricas de frente · 17 a cada lado")),
+ arcaico:()=>S(cols(14,86,4,62,140)+`<rect x="4" y="50" width="92" height="12" ${ST}/>`+cols(244,300,3,76,140,true)+`<rect x="234" y="64" width="80" height="12" ${ST}/>`+
+   [[108,138,24,12],[134,142,30,8],[166,136,22,14],[190,141,34,9],[118,130,14,8],[172,129,18,7]].map(([x,y,w,h])=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#cbbd9f" stroke="#7d6f58"/>`).join("")+
+   ARROW(165,92,165,124)+T(165,84,"Mira al suelo","middle")+T(50,44,"Partenón","middle")+T(274,58,"Erecteion","middle")),
+ erecteion:()=>S(`<rect x="168" y="125" width="130" height="25" ${ST}/>`+temple({x0:182,x1:284,base:110,h:50,n:6,ionic:true,ped:false})+
+   `<rect x="36" y="115" width="120" height="35" ${ST}/><rect x="36" y="56" width="120" height="10" ${ST}/>`+[56,83,110,137].map(x=>figure(x,70,115)).join("")+
+   T(96,40,"Pórtico de las Cariátides","middle")+T(233,40,"Fachada jónica","middle")),
+ mirador:()=>{let f="";for(let i=0;i<9;i++)f+=`<rect x="70" y="${32+i*4.44}" width="62" height="4.44" fill="${i%2?'#fff':'#0d5eaf'}"/>`;
+   f+=`<rect x="70" y="32" width="22.2" height="22.2" fill="#0d5eaf"/><rect x="79" y="32" width="4.4" height="22.2" fill="#fff"/><rect x="70" y="41" width="22.2" height="4.4" fill="#fff"/>`;
+   return S(`<polygon points="175,150 228,70 244,60 260,70 305,150" fill="#b8c5b0" stroke="#8fa087"/><rect x="239" y="51" width="10" height="9" fill="#fff" stroke="#888"/>`+
+   `<polygon points="0,180 0,138 150,132 175,180" ${ROCKC}/><line x1="70" y1="136" x2="70" y2="26" stroke="#555" stroke-width="2.5"/>`+f+T(244,44,"Licabeto","middle")+T(70,22,"Bandera griega"))},
+ odeon:()=>{let s=`<rect x="70" y="22" width="180" height="128" ${ST}/>`;
+   for(let i=0;i<5;i++)s+=arch(80+i*34,96,22,50);for(let i=0;i<6;i++)s+=arch(82+i*28.5,60,16,28);for(let i=0;i<7;i++)s+=arch(82+i*24,30,12,20);
+   [150,125,100,75].forEach((r,i)=>s+=halfE(160,182,r,r*0.28,`fill="${i%2?'#efe7d8':'#f8f3ea'}" stroke="#a89a82"`));
+   return S(s+T(160,14,"Fachada de arcos","middle")+T(16,170,"Gradas"))},
+ eumenes:()=>{let s=`<polygon points="0,0 320,0 320,58 0,66" ${ROCKC}/><rect x="10" y="60" width="300" height="90" fill="#e4d8c3" stroke="#5a4f44"/>`;
+   for(let i=0;i<8;i++)s+=arch(22+i*36,72,26,72);return S(s+T(160,20,"Roca de la Acrópolis","middle")+T(160,170,"Camino de la ladera sur","middle"))},
+ asclepeion:()=>S(`<polygon points="0,26 120,16 320,36 320,150 0,150" ${ROCKC}/><ellipse cx="70" cy="114" rx="22" ry="34" fill="#4e443b"/>`+
+   [[150,78],[180,84],[210,78],[240,104],[270,92]].map(([x,y])=>`<rect x="${x}" y="${y}" width="11" height="${150-y}" ${ST}/>`).join("")+
+   `<rect x="144" y="70" width="80" height="9" ${ST}/>`+T(70,70,"Cueva-capilla","middle")+T(210,60,"Pórtico","middle")),
+ dioniso:()=>{let s="";const cx=160,cy=166;
+   for(let r=158,i=0;r>=62;r-=12,i++)s+=halfE(cx,cy,r,r*0.62,`fill="${i%2?'#efe6d4':'#f8f3ea'}" stroke="#a89a82"`);
+   s+=halfE(cx,cy,52,30,`fill="#e2d3b8" stroke="#a89a82"`);
+   for(let a=200;a<=340;a+=20){const t=a*Math.PI/180,x=cx+57*Math.cos(t),y=cy+35*Math.sin(t);
+     s+=`<rect x="${x-4}" y="${y-8}" width="8" height="9" fill="${a===260?'#b5562f':'#fff'}" stroke="#5a4f44"/>`;}
+   return S(s+ARROW(250,40,cx+2,cy-38)+T(312,34,"Trono del sacerdote","end")+T(cx,cy+8,"Orquesta","middle"))},
+ museo:()=>S(`<polygon points="0,92 26,60 140,54 170,92" ${ROCKC}/>`+cols(50,120,6,40,54)+`<rect x="44" y="34" width="82" height="6" ${ST}/>`+
+   [150,175,200,225,250,275,300].map(x=>`<line x1="${x}" y1="128" x2="${x}" y2="150" stroke="#555" stroke-width="3"/>`).join("")+
+   `<rect x="140" y="100" width="170" height="28" fill="#a7abab" stroke="#555"/><rect x="150" y="80" width="150" height="20" fill="#b9bdbc" stroke="#555"/>`+
+   `<polygon points="162,50 302,44 306,80 158,80" fill="#a9c6d6" stroke="#4e6b7c"/>`+T(230,38,"Sala del Partenón (cristal)","middle")+T(84,28,"Partenón","middle")+T(150,170,"Pilares sobre las excavaciones"))
+};
+
+const $ = id => document.getElementById(id);
+let shown = null;
+let pos = null, acc = null, current = null, heard = new Set(), queue = [], started = false, voice = null, watchId = null;
+
+// ---------- Voz ----------
+function pickVoice(){
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v=>v.lang==="es-ES") || vs.find(v=>v.lang && v.lang.startsWith("es")) || null;
+}
+if ("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+const textOf = poi => mode==="corto" ? SHORT[poi.id] : poi.text;
+let parts = [], partIdx = 0, token = 0;
+function speak(poi, fromIdx=0){
+  show(poi);
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  current = poi;
+  // Trocear en frases para evitar cortes en iOS/Chrome con textos largos
+  const nx = nextOf(poi);
+  const tail = nx ? ` Siguiente parada: ${nx.name}. ${EXTRA[nx.id].go}` : " Aquí termina la visita. ¡Gracias por recorrer la Acrópolis!";
+  parts = (poi.name + ". " + textOf(poi) + tail).match(/[^.!?]+[.!?]+/g) || [textOf(poi)];
+  const my = ++token;
+  parts.slice(fromIdx).forEach((p,j)=>{
+    const i = fromIdx + j;
+    const u = new SpeechSynthesisUtterance(p.trim());
+    u.lang = "es-ES"; if (voice) u.voice = voice; u.rate = rate;
+    u.onstart = () => { if (my===token) partIdx = i; };
+    if (i === parts.length-1) u.onend = () => { if (my!==token) return; current = null; $("nowLabel").textContent="Escuchado"; nextInQueue(); };
+    speechSynthesis.speak(u);
+  });
+  if (poi.lat) heard.add(poi.id);
+  $("pauseBtn").textContent = "⏸ Pausa";
+  render();
+}
+function nextInQueue(){ const p = queue.shift(); if (p && !heard.has(p.id)) setTimeout(()=>speak(p), 900); }
+function nextOf(poi){ return POIS[poi.n+1] || null; }
+function show(poi){
+  shown = poi;
+  $("nowCard").classList.remove("hidden");
+  $("nowLabel").textContent = "Escuchando · parada " + (poi.n || "inicial");
+  $("nowTitle").textContent = poi.name;
+  $("nowArt").innerHTML = DRAW[poi.id] ? DRAW[poi.id]() : "";
+  $("nowLook").innerHTML = "<b>Qué buscar:</b> " + EXTRA[poi.id].look;
+  $("nowText").textContent = textOf(poi);
+  const nx = nextOf(poi);
+  $("nextBox").innerHTML = nx ? `<b>Siguiente: ${nx.n}. ${nx.name}</b><br>${EXTRA[nx.id].go}` : "<b>Fin de la visita.</b>";
+  $("nextBtn").classList.toggle("hidden", !nx);
+  $("nowCard").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+// ---------- Geo ----------
+function dist(a,b,c,d){
+  const R=6371000, toR=x=>x*Math.PI/180;
+  const dLat=toR(c-a), dLng=toR(d-b);
+  const h=Math.sin(dLat/2)**2+Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function startGeo(){
+  if (!("geolocation" in navigator)) return geoFail("Este navegador no da ubicación. Usa el modo manual.");
+  $("gpsText").textContent = "Buscando señal GPS…";
+  try{
+    watchId = navigator.geolocation.watchPosition(onPos, e=>{
+      const proto = location.protocol, framed = (()=>{try{return window.top!==window}catch(x){return true}})();
+      let msg;
+      if (proto==="file:" || proto==="content:" || proto==="blob:")
+        msg = "GPS bloqueado: el archivo está abierto desde el móvil, no desde una web, y los navegadores solo dan la ubicación a webs https. Usa «Siguiente parada».";
+      else if (framed)
+        msg = "GPS bloqueado por la app en la que se abrió la página. Usa «Siguiente parada».";
+      else if (e.code===1)
+        msg = "El navegador tiene denegada la ubicación para esta página (revisa Ajustes › Privacidad › Localización). Usa «Siguiente parada».";
+      else msg = "Sin señal GPS por ahora. Usa «Siguiente parada» o toca una parada.";
+      geoFail(msg + ` [código ${e.code}, ${proto}]`);
+    }, {enableHighAccuracy:true, maximumAge:3000, timeout:20000});
+  }catch(e){ geoFail("Ubicación no disponible aquí. Toca las paradas para escucharlas."); }
+}
+function geoFail(msg){ $("gpsDot").className="dot err"; $("gpsText").textContent=msg; }
+function onPos(p){
+  pos = {lat:p.coords.latitude, lng:p.coords.longitude}; acc = p.coords.accuracy;
+  $("gpsDot").className="dot on";
+  const nearest = POIS.filter(x=>x.lat).map(x=>({x,d:dist(pos.lat,pos.lng,x.lat,x.lng)})).sort((a,b)=>a.d-b.d)[0];
+  const far = nearest.d > 1500;
+  $("gpsText").textContent = far ? `GPS activo · estás a ${(nearest.d/1000).toFixed(1)} km de la Acrópolis`
+                                 : `GPS activo · más cerca: ${nearest.x.name} (${Math.round(nearest.d)} m)`;
+  $("accText").textContent = `Precisión ±${Math.round(acc)} m`;
+  if (started && $("autoChk").checked && !far){
+    const slack = Math.min(acc||0, 25);
+    POIS.filter(x=>x.lat && !heard.has(x.id) && dist(pos.lat,pos.lng,x.lat,x.lng) <= x.r + slack)
+        .sort((a,b)=>dist(pos.lat,pos.lng,a.lat,a.lng)-dist(pos.lat,pos.lng,b.lat,b.lng))
+        .forEach(x=>{
+          if (speechSynthesis.speaking || current) { if (!queue.includes(x)) queue.push(x); }
+          else speak(x);
+        });
+  }
+  render();
+}
+
+// ---------- Mapa ----------
+const B = {minLat:37.9678, maxLat:37.9732, minLng:23.7226, maxLng:23.7296}, W=400, H=380;
+function xy(lat,lng){ return [ (lng-B.minLng)/(B.maxLng-B.minLng)*W, (B.maxLat-lat)/(B.maxLat-B.minLat)*H ]; }
+const ROCK = [[37.97245,23.72470],[37.97262,23.72600],[37.97248,23.72730],[37.97215,23.72830],[37.97150,23.72850],[37.97115,23.72760],[37.97105,23.72620],[37.97115,23.72500],[37.97150,23.72445],[37.97200,23.72440]];
+function render(){
+  const pts = ROCK.map(p=>xy(...p).join(",")).join(" ");
+  let s = `<polygon points="${pts}" fill="#d9ccb3" stroke="#bfae8e" stroke-width="2"/>`;
+  s += `<text x="${xy(37.9727,23.7255)[0]}" y="${xy(37.9727,23.7255)[1]}" font-size="11" fill="#8a7c68" font-family="Inter">Roca sagrada</text>`;
+  POIS.filter(p=>p.lat).forEach(p=>{
+    const [x,y]=xy(p.lat,p.lng);
+    const c = current&&current.id===p.id ? "#b5562f" : heard.has(p.id) ? "#5d6b3a" : "#2b2520";
+    s += `<g style="cursor:pointer" data-id="${p.id}"><circle cx="${x}" cy="${y}" r="11" fill="${c}"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="600" fill="#fff" font-family="Inter">${p.n}</text></g>`;
+  });
+  if (pos){
+    const [x,y]=xy(pos.lat,pos.lng);
+    if (x>-20&&x<W+20&&y>-20&&y<H+20){
+      s += `<circle cx="${x}" cy="${y}" r="16" fill="#2f5d7c33"/><circle cx="${x}" cy="${y}" r="7" fill="#2f5d7c" stroke="#fff" stroke-width="2.5"/>`;
+    }
+  }
+  $("map").innerHTML = s;
+  $("map").querySelectorAll("g[data-id]").forEach(g=>g.onclick=()=>{ started=true; speak(POIS.find(p=>p.id===g.dataset.id)); });
+
+  // Lista
+  const items = POIS.map(p=>{
+    const d = pos && p.lat ? dist(pos.lat,pos.lng,p.lat,p.lng) : null;
+    const near = d!==null && d <= p.r + 10;
+    const dTxt = d===null ? "" : d<1000 ? Math.round(d)+" m" : (d/1000).toFixed(1)+" km";
+    return `<li data-id="${p.id}" class="${heard.has(p.id)?'heard':''} ${near?'near':''}">
+      <span class="num">${p.n||"★"}</span>
+      <span class="t"><b>${p.name}</b><span>${p.sub}</span></span>
+      <span class="dist">${dTxt}</span></li>`;
+  }).join("");
+  $("list").innerHTML = items;
+  $("list").querySelectorAll("li").forEach(li=>li.onclick=()=>{ started=true; speak(POIS.find(p=>p.id===li.dataset.id)); });
+}
+
+// ---------- Controles ----------
+$("startBtn").onclick = ()=>{
+  started = true;
+  $("startBtn").classList.add("hidden");
+  speak(POIS[0]);          // el gesto del usuario desbloquea el audio
+  startGeo();
+  try{ navigator.wakeLock && navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
+};
+$("pauseBtn").onclick = ()=>{
+  if (speechSynthesis.paused){ speechSynthesis.resume(); $("pauseBtn").textContent="⏸ Pausa"; }
+  else if (speechSynthesis.speaking){ speechSynthesis.pause(); $("pauseBtn").textContent="▶︎ Seguir"; }
+};
+$("replayBtn").onclick = ()=>{ const p = current || shown; if (p) speak(p); };
+$("nextBtn").onclick = ()=>{ const nx = shown && nextOf(shown); if (nx){ queue=[]; speak(nx); } };
+$("stopBtn").onclick = ()=>{ queue=[]; current=null; speechSynthesis.cancel(); $("nowLabel").textContent="Detenido"; render(); };
+
+function paintSeg(){
+  $("modeSeg").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===mode));
+  $("rateSeg").querySelectorAll("button").forEach(b=>b.classList.toggle("on", parseFloat(b.dataset.v)===rate));
+}
+$("modeSeg").onclick = e=>{
+  const v = e.target.dataset && e.target.dataset.v; if (!v) return;
+  mode = v; store.set("mode",v); paintSeg();
+  if (shown){ if (current) speak(shown); else show(shown); }   // reinicia la parada actual con la nueva versión
+};
+$("rateSeg").onclick = e=>{
+  const v = e.target.dataset && e.target.dataset.v; if (!v) return;
+  rate = parseFloat(v); store.set("rate",v); paintSeg();
+  if (current && speechSynthesis.speaking && !speechSynthesis.paused) speak(current, partIdx);  // sigue desde la frase actual
+};
+paintSeg();
+render();
+</script>
+</body>
+</html>
